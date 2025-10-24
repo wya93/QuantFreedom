@@ -58,6 +58,36 @@ class RoundTripStrategy(StrategyBase):
         self.step += 1
 
 
+class ShortCoverStrategy(StrategyBase):
+    """Open a short then cover to verify short accounting."""
+
+    def __init__(self, params=None):
+        super().__init__(params)
+        self.step = 0
+
+    def on_bar(self, bar):
+        if self.step == 0:
+            self.sell(1)
+        elif self.step == 1:
+            self.buy(1)
+        self.step += 1
+
+
+class FlipStrategy(StrategyBase):
+    """Flip from long to short in a single order."""
+
+    def __init__(self, params=None):
+        super().__init__(params)
+        self.step = 0
+
+    def on_bar(self, bar):
+        if self.step == 0:
+            self.buy(1)
+        elif self.step == 1:
+            self.sell(2)
+        self.step += 1
+
+
 def test_market_order_fill_updates_position():
     data = [
         {"timestamp": 0, "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1},
@@ -99,3 +129,27 @@ def test_fee_deduction_on_round_trip():
     assert total_fees > 0
     final_equity = equity_rows[-1]["equity"]
     assert final_equity <= 1000.0
+
+
+def test_short_position_generates_positive_pnl_when_price_falls():
+    data = [
+        {"timestamp": 0, "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1},
+        {"timestamp": 1, "open": 90.0, "high": 91.0, "low": 89.0, "close": 90.0, "volume": 1},
+    ]
+    bt = Backtester(data=data, strategy_cls=ShortCoverStrategy, initial_capital=1000.0, fee_rate=0.0)
+    metrics, equity_rows, trades_rows = bt.run()
+    assert bt.portfolio.position_qty == pytest.approx(0.0)
+    assert trades_rows[-1]["realized_pnl"] == pytest.approx(10.0)
+    assert metrics["final_capital"] == pytest.approx(1010.0)
+
+
+def test_flip_from_long_to_short_records_realized_pnl():
+    data = [
+        {"timestamp": 0, "open": 100.0, "high": 100.0, "low": 100.0, "close": 100.0, "volume": 1},
+        {"timestamp": 1, "open": 110.0, "high": 110.0, "low": 110.0, "close": 110.0, "volume": 1},
+    ]
+    bt = Backtester(data=data, strategy_cls=FlipStrategy, initial_capital=1000.0, fee_rate=0.0)
+    _, _, trades_rows = bt.run()
+    assert trades_rows[1]["realized_pnl"] == pytest.approx(10.0)
+    assert bt.portfolio.position_qty == pytest.approx(-1.0)
+    assert bt.portfolio.avg_entry_price == pytest.approx(110.0)

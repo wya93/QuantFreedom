@@ -45,29 +45,62 @@ class Portfolio:
 
     # ---- accounting ------------------------------------------------------
     def update_on_fill(self, fill) -> None:
-        """Update cash and positions when a fill is received."""
-        qty = fill.quantity
+        """Update cash, position direction and realised PnL for a fill."""
+        qty = fill.quantity  # positive for buy fills, negative for sell fills
         cost = qty * fill.price
         self.cash -= cost
         self.cash -= fill.fee
 
         realized_pnl = 0.0
-        if qty > 0:
-            # Increasing long position
-            new_qty = self.position_qty + qty
-            if new_qty != 0:
-                self.avg_entry_price = (
-                    self.avg_entry_price * self.position_qty + fill.price * qty
-                ) / new_qty
-            self.position_qty = new_qty
-        elif qty < 0:
-            # Closing existing long position
-            closing_qty = min(-qty, self.position_qty)
-            realized_pnl = (fill.price - self.avg_entry_price) * closing_qty
-            self.position_qty += qty
-            if self.position_qty <= 0:
-                self.avg_entry_price = 0.0
-                self.position_qty = max(self.position_qty, 0.0)
+        prev_qty = self.position_qty
+        new_qty = prev_qty + qty
+
+        if prev_qty == 0:
+            # Opening a fresh position (long or short)
+            self.avg_entry_price = fill.price if new_qty != 0 else 0.0
+        elif prev_qty > 0:
+            if new_qty >= 0:
+                if qty < 0:
+                    # Reducing an existing long
+                    closed = min(prev_qty, -qty)
+                    realized_pnl = (fill.price - self.avg_entry_price) * closed
+                    if new_qty == 0:
+                        self.avg_entry_price = 0.0
+                else:
+                    # Adding to a long position
+                    total_qty = prev_qty + qty
+                    if total_qty != 0:
+                        self.avg_entry_price = (
+                            self.avg_entry_price * prev_qty + fill.price * qty
+                        ) / total_qty
+            else:
+                # Long flips to short
+                closed = prev_qty
+                realized_pnl = (fill.price - self.avg_entry_price) * closed
+                self.avg_entry_price = fill.price
+        else:  # prev_qty < 0 -> currently short
+            if new_qty <= 0:
+                if qty > 0:
+                    # Reducing an existing short
+                    closed = min(-prev_qty, qty)
+                    realized_pnl = (self.avg_entry_price - fill.price) * closed
+                    if new_qty == 0:
+                        self.avg_entry_price = 0.0
+                else:
+                    # Adding to a short position
+                    total_qty = abs(prev_qty) + abs(qty)
+                    if total_qty != 0:
+                        self.avg_entry_price = (
+                            self.avg_entry_price * abs(prev_qty)
+                            + fill.price * abs(qty)
+                        ) / total_qty
+            else:
+                # Short flips to long
+                closed = -prev_qty
+                realized_pnl = (self.avg_entry_price - fill.price) * closed
+                self.avg_entry_price = fill.price
+
+        self.position_qty = new_qty
 
         side = "BUY" if qty > 0 else "SELL"
         self.trades.append(

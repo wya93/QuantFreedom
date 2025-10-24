@@ -6,7 +6,7 @@ QuantFreedom 是一个可扩展的加密货币量化交易与回测系统，支�
 - 📈 支持 CSV 格式 OHLCV 数据加载
 - ⚙️ 灵活的交易撮合引擎：手续费、滑点、委托延迟
 - 🧠 策略接口：`on_bar`、`on_order`、`on_fill`
-- 💼 仓位与资金管理，支持单边和双边模式（可扩展永续合约）
+- 💼 仓位与资金管理，支持单边和双边模式（可扩展永续合约），策略可开多做空
 - 📊 丰富绩效指标与图表输出
 - ✅ 单元测试覆盖核心撮合与资金路径
 
@@ -33,10 +33,10 @@ timestamp,open,high,low,close,volume
 - `volume`: 成交量
 
 ## 运行示例
-执行示例策略（双均线交叉）：
+执行示例策略（双均线交叉，可配置做空开关）：
 
 ```bash
-python examples/run_example.py --data examples/data/BTC_USD_1h.csv --strategy src/strategies/sma_cross.py
+python examples/run_example.py --data examples/data/BTC_USD_1h.csv --strategy src/strategies/sma_cross.py --params '{"allow_short": true}'
 ```
 
 运行后将生成：

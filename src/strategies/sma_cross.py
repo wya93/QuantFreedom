@@ -14,14 +14,15 @@ class SMACrossParams:
     short_window: int = 50
     long_window: int = 200
     capital_fraction: float = 0.5
+    allow_short: bool = True
 
 
 class SMACrossStrategy(StrategyBase):
-    """Long-only SMA crossover strategy.
+    """Bidirectional SMA crossover strategy.
 
     When the short-term moving average crosses above the long-term moving average
     the strategy enters a long position allocating a fraction of capital. A cross
-    below exits the entire position.
+    below either flips into a short (if ``allow_short`` is True) or exits to flat.
     """
 
     def __init__(self, params: Optional[Dict[str, float]] = None) -> None:
@@ -30,14 +31,17 @@ class SMACrossStrategy(StrategyBase):
             base_params.short_window = params.get("short_window", base_params.short_window)
             base_params.long_window = params.get("long_window", base_params.long_window)
             base_params.capital_fraction = params.get("capital_fraction", base_params.capital_fraction)
+            base_params.allow_short = params.get("allow_short", base_params.allow_short)
         super().__init__({
             "short_window": base_params.short_window,
             "long_window": base_params.long_window,
             "capital_fraction": base_params.capital_fraction,
+            "allow_short": base_params.allow_short,
         })
         self.short_window = base_params.short_window
         self.long_window = base_params.long_window
         self.capital_fraction = base_params.capital_fraction
+        self.allow_short = base_params.allow_short
         self.prices: List[float] = []
         self.last_signal: int = 0  # -1 short, 0 flat, 1 long
 
@@ -53,15 +57,29 @@ class SMACrossStrategy(StrategyBase):
         position = self._context.portfolio.exposure()
         equity = self._context.portfolio.total_equity(price)
         target_qty = (equity * self.capital_fraction) / price
-        if short_ma > long_ma and self.last_signal <= 0:
-            qty = max(target_qty - position, 0)
-            if qty > 0:
-                self.buy(qty)
-            self.last_signal = 1
-        elif short_ma < long_ma and (position > 0 or self.last_signal == 1):
-            if position > 0:
-                self.sell(position)
-            self.last_signal = -1
+
+        desired_signal = self.last_signal
+        if short_ma > long_ma:
+            desired_signal = 1
+        elif short_ma < long_ma:
+            desired_signal = -1 if self.allow_short else 0
+
+        if desired_signal == self.last_signal:
+            return
+
+        desired_position = 0.0
+        if desired_signal == 1:
+            desired_position = target_qty
+        elif desired_signal == -1:
+            desired_position = -target_qty
+
+        delta = desired_position - position
+        if delta > 0:
+            self.buy(delta)
+        elif delta < 0:
+            self.sell(abs(delta))
+
+        self.last_signal = desired_signal
 
     def on_fill(self, fill) -> None:
         # No additional actions required for this simple strategy.
