@@ -53,6 +53,12 @@ def compute_metrics(
         if losses < 0
         else (float("inf") if wins > 0 else 0.0)
     )
+    total_fees = sum(tr.fee for tr in trades)
+    total_realized = sum(tr.realized_pnl for tr in trades)
+    buy_trades = sum(1 for tr in trades if tr.quantity > 0)
+    sell_trades = sum(1 for tr in trades if tr.quantity < 0)
+    buy_volume = sum(tr.quantity for tr in trades if tr.quantity > 0)
+    sell_volume = sum(abs(tr.quantity) for tr in trades if tr.quantity < 0)
     holding_bars = sum(1 for snap in ordered if snap.position != 0)
     metrics = {
         "start": ordered[0].timestamp,
@@ -67,5 +73,12 @@ def compute_metrics(
         "win_rate": win_rate,
         "profit_factor": profit_factor,
         "holding_bars": holding_bars,
+        "total_fees": total_fees,
+        "realized_pnl": total_realized,
+        "net_pnl": total_realized - total_fees,
+        "buy_trades": int(buy_trades),
+        "sell_trades": int(sell_trades),
+        "buy_volume": buy_volume,
+        "sell_volume": sell_volume,
     }
     return metrics

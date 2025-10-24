@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 
 @dataclass
@@ -22,11 +22,16 @@ class TradeRecord:
     """Stores details about each executed trade."""
 
     index: int
+    timestamp: str
+    order_id: Optional[int]
     side: str
     quantity: float
     price: float
     fee: float
     realized_pnl: float
+    cash_after: float
+    position_after: float
+    equity_after: float
 
 
 @dataclass
@@ -47,8 +52,19 @@ class Portfolio:
         self.cash = self.initial_capital
 
     # ---- accounting ------------------------------------------------------
-    def update_on_fill(self, fill) -> None:
-        """Update cash, position direction and realised PnL for a fill."""
+    def update_on_fill(self, fill, bar_timestamp: Optional[object] = None, mark_price: Optional[float] = None) -> TradeRecord:
+        """Update cash, position direction and realised PnL for a fill.
+
+        Parameters
+        ----------
+        fill
+            Fill event produced by the exchange simulator.
+        bar_timestamp: Optional[object]
+            Optional timestamp associated with the bar that generated the fill.
+        mark_price: Optional[float]
+            Price used for valuing open positions immediately after the fill. If
+            omitted, the fill price is used as the mark.
+        """
         qty = fill.quantity  # positive for buy fills, negative for sell fills
         cost = qty * fill.price
         prev_qty = self.position_qty
@@ -120,16 +136,28 @@ class Portfolio:
         self.position_qty = new_qty
 
         side = "BUY" if qty > 0 else "SELL"
-        self.trades.append(
-            TradeRecord(
-                index=fill.timestamp,
-                side=side,
-                quantity=qty,
-                price=fill.price,
-                fee=fill.fee,
-                realized_pnl=realized_pnl,
-            )
+        timestamp_label = (
+            bar_timestamp.isoformat()
+            if hasattr(bar_timestamp, "isoformat")
+            else (str(bar_timestamp) if bar_timestamp is not None else str(fill.timestamp))
         )
+        mark = fill.price if mark_price is None else mark_price
+        equity_after = self.total_equity(mark)
+        record = TradeRecord(
+            index=fill.timestamp,
+            timestamp=timestamp_label,
+            order_id=getattr(fill, "order_id", None),
+            side=side,
+            quantity=qty,
+            price=fill.price,
+            fee=fill.fee,
+            realized_pnl=realized_pnl,
+            cash_after=self.cash,
+            position_after=self.position_qty,
+            equity_after=equity_after,
+        )
+        self.trades.append(record)
+        return record
 
     def total_equity(self, mark_price: float) -> float:
         """Compute the total portfolio equity."""
