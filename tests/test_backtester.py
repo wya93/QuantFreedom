@@ -263,3 +263,43 @@ def test_sma_cross_warmup_delays_trading_until_history_is_ready():
 
     assert first_trade_index(0) == 1
     assert first_trade_index(2) == 3
+
+
+def test_sma_cross_string_false_disables_shorts():
+    data = [
+        {"timestamp": 0, "open": 100.0, "high": 100.0, "low": 100.0, "close": 100.0, "volume": 1},
+        {"timestamp": 1, "open": 99.0, "high": 99.0, "low": 99.0, "close": 99.0, "volume": 1},
+        {"timestamp": 2, "open": 101.0, "high": 101.0, "low": 101.0, "close": 101.0, "volume": 1},
+        {"timestamp": 3, "open": 98.0, "high": 98.0, "low": 98.0, "close": 98.0, "volume": 1},
+    ]
+
+    bt_true = Backtester(
+        data=data,
+        strategy_cls=SMACrossStrategy,
+        strategy_params={
+            "short_window": 1,
+            "long_window": 2,
+            "capital_fraction": 0.5,
+            "allow_short": True,
+        },
+        initial_capital=1000.0,
+        fee_rate=0.0,
+    )
+    _, _, trades_true = bt_true.run()
+    assert any(trade["position_after"] < 0 for trade in trades_true)
+
+    bt_false = Backtester(
+        data=data,
+        strategy_cls=SMACrossStrategy,
+        strategy_params={
+            "short_window": 1,
+            "long_window": 2,
+            "capital_fraction": 0.5,
+            "allow_short": "false",
+        },
+        initial_capital=1000.0,
+        fee_rate=0.0,
+    )
+    _, _, trades_false = bt_false.run()
+    assert trades_false  # ensure the strategy trades
+    assert all(trade["position_after"] >= -1e-9 for trade in trades_false)

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 from src.strategy_base import StrategyBase
+from src.utils import to_bool
 
 
 @dataclass
@@ -35,7 +36,8 @@ class SMACrossStrategy(StrategyBase):
             base_params.short_window = params.get("short_window", base_params.short_window)
             base_params.long_window = params.get("long_window", base_params.long_window)
             base_params.capital_fraction = params.get("capital_fraction", base_params.capital_fraction)
-            base_params.allow_short = params.get("allow_short", base_params.allow_short)
+            allow_short_param = params.get("allow_short", base_params.allow_short)
+            base_params.allow_short = to_bool(allow_short_param)
             base_params.warmup_bars = params.get("warmup_bars", base_params.warmup_bars)
         super().__init__({
             "short_window": base_params.short_window,

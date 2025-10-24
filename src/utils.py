@@ -39,6 +39,31 @@ def ensure_dir(path: Union[os.PathLike, str]) -> Path:
     return path_obj
 
 
+def to_bool(value: Any) -> bool:
+    """Interpret common truthy/falsey inputs as booleans.
+
+    Parameters
+    ----------
+    value: Any
+        Value to coerce. Strings such as ``"true"``/``"false"`` (case insensitive)
+        and integers ``1``/``0`` are handled explicitly. Other objects fall back to
+        Python's truthiness rules.
+    """
+
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "y", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "n", "off"}:
+            return False
+        return bool(normalized)
+    if isinstance(value, (int, float)):
+        return value != 0
+    return bool(value)
+
+
 def to_datetime(value: Any) -> datetime:
     """Parse timestamps from strings or pass through datetime objects."""
     if isinstance(value, datetime):
