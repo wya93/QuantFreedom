@@ -5,10 +5,10 @@ import json
 import logging
 import os
 from datetime import datetime
+from math import sqrt
 from pathlib import Path
-from typing import Any, Dict
-
-import numpy as np
+from statistics import StatisticsError, mean, stdev
+from typing import Any, Dict, Iterable, Union
 
 
 def setup_logger(name: str = "quantfreedom") -> logging.Logger:
@@ -32,7 +32,7 @@ def setup_logger(name: str = "quantfreedom") -> logging.Logger:
     return logger
 
 
-def ensure_dir(path: os.PathLike[str] | str) -> Path:
+def ensure_dir(path: Union[os.PathLike, str]) -> Path:
     """Create a directory if it does not exist and return its Path object."""
     path_obj = Path(path)
     path_obj.mkdir(parents=True, exist_ok=True)
@@ -46,7 +46,7 @@ def to_datetime(value: Any) -> datetime:
     return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
 
 
-def to_json(data: Dict[str, Any], path: os.PathLike[str] | str) -> None:
+def to_json(data: Dict[str, Any], path: Union[os.PathLike, str]) -> None:
     """Persist a dictionary as a JSON file with UTF-8 encoding."""
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
@@ -59,12 +59,22 @@ def annualized_return(total_return: float, periods_per_year: int, num_periods: i
     return (1 + total_return) ** (periods_per_year / num_periods) - 1
 
 
-def sharpe_ratio(returns: np.ndarray, risk_free_rate: float = 0.0, periods_per_year: int = 252) -> float:
+def sharpe_ratio(
+    returns: Iterable[float],
+    risk_free_rate: float = 0.0,
+    periods_per_year: int = 252,
+) -> float:
     """Calculate the annualized Sharpe ratio from periodic returns."""
-    if returns.size == 0:
+    returns = list(returns)
+    if len(returns) < 2:
         return 0.0
-    excess = returns - risk_free_rate / periods_per_year
-    std = np.std(excess, ddof=1)
-    if std == 0:
+    adjustment = risk_free_rate / periods_per_year
+    excess = [value - adjustment for value in returns]
+    try:
+        std_dev = stdev(excess)
+    except StatisticsError:
         return 0.0
-    return np.sqrt(periods_per_year) * np.mean(excess) / std
+    if std_dev == 0:
+        return 0.0
+    avg = mean(excess)
+    return sqrt(periods_per_year) * avg / std_dev

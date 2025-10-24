@@ -17,6 +17,8 @@ source .venv/bin/activate  # Windows 使用 .venv\\Scripts\\activate
 pip install -r requirements.txt
 ```
 
+> ℹ️ 框架核心仅依赖标准库，`requirements.txt` 中的 matplotlib 仅用于生成示例图表，可按需安装。
+
 ## 示例数据格式
 示例数据位于 `examples/data/BTC_USD_1h.csv`，包含以下列：
 

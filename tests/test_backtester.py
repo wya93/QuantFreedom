@@ -1,7 +1,13 @@
 from __future__ import annotations
 
-import pandas as pd
+import sys
+from pathlib import Path
+
 import pytest
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.backtester import Backtester
 from src.strategy_base import StrategyBase
@@ -53,26 +59,22 @@ class RoundTripStrategy(StrategyBase):
 
 
 def test_market_order_fill_updates_position():
-    data = pd.DataFrame(
-        [
-            {"timestamp": 0, "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1},
-            {"timestamp": 1, "open": 101.0, "high": 102.0, "low": 100.0, "close": 101.0, "volume": 1},
-        ]
-    )
+    data = [
+        {"timestamp": 0, "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1},
+        {"timestamp": 1, "open": 101.0, "high": 102.0, "low": 100.0, "close": 101.0, "volume": 1},
+    ]
     bt = Backtester(data=data, strategy_cls=BuyAndHoldStrategy, initial_capital=1000.0, fee_rate=0.0)
-    metrics, equity_df, trades_df = bt.run()
+    metrics, equity_rows, trades_rows = bt.run()
     assert pytest.approx(bt.portfolio.position_qty, rel=1e-6) == pytest.approx(1000.0 / 100.0)
-    assert len(trades_df) == 1
+    assert len(trades_rows) == 1
     assert metrics["final_capital"] == pytest.approx(bt.portfolio.total_equity(101.0))
 
 
 def test_limit_order_fills_when_price_reached():
-    data = pd.DataFrame(
-        [
-            {"timestamp": 0, "open": 100.0, "high": 100.5, "low": 99.5, "close": 100.0, "volume": 1},
-            {"timestamp": 1, "open": 99.0, "high": 101.0, "low": 98.0, "close": 100.0, "volume": 1},
-        ]
-    )
+    data = [
+        {"timestamp": 0, "open": 100.0, "high": 100.5, "low": 99.5, "close": 100.0, "volume": 1},
+        {"timestamp": 1, "open": 99.0, "high": 101.0, "low": 98.0, "close": 100.0, "volume": 1},
+    ]
     bt = Backtester(
         data=data,
         strategy_cls=LimitOrderStrategy,
@@ -80,22 +82,20 @@ def test_limit_order_fills_when_price_reached():
         initial_capital=1000.0,
         fee_rate=0.0,
     )
-    _, _, trades_df = bt.run()
-    assert len(trades_df) == 1
-    assert trades_df.iloc[0]["price"] <= 99.0
+    _, _, trades = bt.run()
+    assert len(trades) == 1
+    assert trades[0]["price"] <= 99.0
 
 
 def test_fee_deduction_on_round_trip():
-    data = pd.DataFrame(
-        [
-            {"timestamp": 0, "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1},
-            {"timestamp": 1, "open": 101.0, "high": 102.0, "low": 100.0, "close": 101.0, "volume": 1},
-            {"timestamp": 2, "open": 102.0, "high": 103.0, "low": 101.0, "close": 102.0, "volume": 1},
-        ]
-    )
+    data = [
+        {"timestamp": 0, "open": 100.0, "high": 100.0, "low": 100.0, "close": 100.0, "volume": 1},
+        {"timestamp": 1, "open": 100.0, "high": 100.0, "low": 100.0, "close": 100.0, "volume": 1},
+        {"timestamp": 2, "open": 100.0, "high": 100.0, "low": 100.0, "close": 100.0, "volume": 1},
+    ]
     bt = Backtester(data=data, strategy_cls=RoundTripStrategy, initial_capital=1000.0, fee_rate=0.001)
-    _, equity_df, trades_df = bt.run()
-    total_fees = trades_df["fee"].sum()
+    _, equity_rows, trades_rows = bt.run()
+    total_fees = sum(row["fee"] for row in trades_rows)
     assert total_fees > 0
-    final_equity = equity_df.iloc[-1]["equity"]
+    final_equity = equity_rows[-1]["equity"]
     assert final_equity <= 1000.0

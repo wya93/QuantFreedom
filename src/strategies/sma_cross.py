@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict
-
-import numpy as np
+from typing import Dict, List, Optional
 
 from src.strategy_base import StrategyBase
 
@@ -26,7 +24,7 @@ class SMACrossStrategy(StrategyBase):
     below exits the entire position.
     """
 
-    def __init__(self, params: Dict | None = None) -> None:
+    def __init__(self, params: Optional[Dict[str, float]] = None) -> None:
         base_params = SMACrossParams()
         if params:
             base_params.short_window = params.get("short_window", base_params.short_window)
@@ -40,7 +38,7 @@ class SMACrossStrategy(StrategyBase):
         self.short_window = base_params.short_window
         self.long_window = base_params.long_window
         self.capital_fraction = base_params.capital_fraction
-        self.prices: list[float] = []
+        self.prices: List[float] = []
         self.last_signal: int = 0  # -1 short, 0 flat, 1 long
 
     def on_bar(self, bar: Dict) -> None:
@@ -48,8 +46,10 @@ class SMACrossStrategy(StrategyBase):
         self.prices.append(price)
         if len(self.prices) < self.long_window:
             return
-        short_ma = float(np.mean(self.prices[-self.short_window :]))
-        long_ma = float(np.mean(self.prices[-self.long_window :]))
+        short_slice = self.prices[-self.short_window :]
+        long_slice = self.prices[-self.long_window :]
+        short_ma = sum(short_slice) / len(short_slice)
+        long_ma = sum(long_slice) / len(long_slice)
         position = self._context.portfolio.exposure()
         equity = self._context.portfolio.total_equity(price)
         target_qty = (equity * self.capital_fraction) / price

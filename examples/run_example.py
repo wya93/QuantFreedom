@@ -6,10 +6,12 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, Type
+from typing import Any, Dict, List, Optional, Type
 
-import matplotlib.pyplot as plt
-import pandas as pd
+try:  # Optional dependency for plotting
+    import matplotlib.pyplot as plt
+except ImportError:  # pragma: no cover - environment dependent
+    plt = None
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -31,6 +33,8 @@ def load_strategy(path: str) -> Type[StrategyBase]:
     if spec is None or spec.loader is None:
         raise ImportError(f"Unable to load strategy module from {path}")
     module = importlib.util.module_from_spec(spec)
+    # Ensure the module is discoverable for decorators relying on sys.modules
+    sys.modules[module_name] = module
     spec.loader.exec_module(module)
     for attr in module.__dict__.values():
         if isinstance(attr, type) and issubclass(attr, StrategyBase) and attr is not StrategyBase:
@@ -38,29 +42,55 @@ def load_strategy(path: str) -> Type[StrategyBase]:
     raise ValueError("No StrategyBase subclass found in strategy file")
 
 
-def parse_params(params: str | None) -> Dict[str, Any]:
+def parse_params(params: Optional[str]) -> Dict[str, Any]:
     if not params:
         return {}
     return json.loads(params)
 
 
-def plot_equity(equity_df: pd.DataFrame, trades_df: pd.DataFrame, output_path: Path) -> None:
+def plot_equity(
+    equity_rows: List[Dict[str, Any]],
+    trades_rows: List[Dict[str, Any]],
+    output_path: Path,
+) -> None:
     """Generate an equity curve plot with buy/sell markers."""
+    if plt is None:
+        raise RuntimeError("matplotlib is not available to generate plots")
+    if not equity_rows:
+        return
+    x_axis = [row["index"] for row in equity_rows]
+    equity_values = [row["equity"] for row in equity_rows]
+    price_values = [row.get("price", 0.0) for row in equity_rows]
+
     fig, ax1 = plt.subplots(figsize=(10, 5))
-    ax1.plot(equity_df["index"], equity_df["equity"], label="Equity", color="tab:blue")
+    ax1.plot(x_axis, equity_values, label="Equity", color="tab:blue")
     ax1.set_xlabel("Bar")
     ax1.set_ylabel("Equity", color="tab:blue")
     ax1.tick_params(axis="y", labelcolor="tab:blue")
 
     ax2 = ax1.twinx()
-    ax2.plot(equity_df["index"], equity_df["price"], label="Close", color="tab:gray", alpha=0.4)
+    ax2.plot(x_axis, price_values, label="Close", color="tab:gray", alpha=0.4)
     ax2.set_ylabel("Price", color="tab:gray")
     ax2.tick_params(axis="y", labelcolor="tab:gray")
 
-    buys = trades_df[trades_df["quantity"] > 0]
-    sells = trades_df[trades_df["quantity"] < 0]
-    ax2.scatter(buys["index"], buys["price"], color="green", marker="^", label="Buy")
-    ax2.scatter(sells["index"], sells["price"], color="red", marker="v", label="Sell")
+    buys = [row for row in trades_rows if row.get("quantity", 0.0) > 0]
+    sells = [row for row in trades_rows if row.get("quantity", 0.0) < 0]
+    if buys:
+        ax2.scatter(
+            [row["index"] for row in buys],
+            [row["price"] for row in buys],
+            color="green",
+            marker="^",
+            label="Buy",
+        )
+    if sells:
+        ax2.scatter(
+            [row["index"] for row in sells],
+            [row["price"] for row in sells],
+            color="red",
+            marker="v",
+            label="Sell",
+        )
 
     fig.legend(loc="upper left")
     fig.tight_layout()
@@ -100,11 +130,14 @@ def main() -> None:
         fee_rate=args.fee,
         slippage=args.slippage,
     )
-    metrics, equity_df, trades_df = backtester.run()
+    metrics, equity_rows, trades_rows = backtester.run()
 
     output_dir = ensure_dir(args.output)
-    backtester.save_results(output_dir, metrics, equity_df, trades_df)
-    plot_equity(equity_df, trades_df, output_dir / "equity_plot.png")
+    backtester.save_results(output_dir, metrics, equity_rows, trades_rows)
+    if plt is not None:
+        plot_equity(equity_rows, trades_rows, output_dir / "equity_plot.png")
+    else:
+        logger.warning("matplotlib not installed; skipping equity plot generation")
 
     logger.info("Backtest metrics: %s", json.dumps(metrics, indent=2))
 

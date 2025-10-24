@@ -42,8 +42,8 @@ class StrategyBase:
         side: OrderSide,
         quantity: float,
         order_type: OrderType = OrderType.MARKET,
-        price: float | None = None,
-        stop_price: float | None = None,
+        price: Optional[float] = None,
+        stop_price: Optional[float] = None,
     ) -> Any:
         """Send an order via the attached context."""
         ctx = self._ensure_context()
@@ -51,12 +51,12 @@ class StrategyBase:
         self.on_order(order)
         return order
 
-    def buy(self, quantity: float, price: float | None = None) -> Any:
+    def buy(self, quantity: float, price: Optional[float] = None) -> Any:
         """Convenience method for market or limit buy order."""
         order_type = OrderType.LIMIT if price is not None else OrderType.MARKET
         return self.send_order(OrderSide.BUY, quantity, order_type, price=price)
 
-    def sell(self, quantity: float, price: float | None = None) -> Any:
+    def sell(self, quantity: float, price: Optional[float] = None) -> Any:
         """Convenience method for market or limit sell order."""
         order_type = OrderType.LIMIT if price is not None else OrderType.MARKET
         return self.send_order(OrderSide.SELL, quantity, order_type, price=price)

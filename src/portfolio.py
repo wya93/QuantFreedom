@@ -85,7 +85,7 @@ class Portfolio:
         """Compute the total portfolio equity."""
         return self.cash + self.position_qty * mark_price
 
-    def record_snapshot(self, index: int, price: float, timestamp: object | None = None) -> None:
+    def record_snapshot(self, index: int, price: float, timestamp: object = None) -> None:
         """Store current equity state for reporting."""
         if hasattr(timestamp, "isoformat"):
             ts = timestamp.isoformat()
