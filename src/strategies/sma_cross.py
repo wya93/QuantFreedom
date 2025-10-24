@@ -56,7 +56,11 @@ class SMACrossStrategy(StrategyBase):
         long_ma = sum(long_slice) / len(long_slice)
         position = self._context.portfolio.exposure()
         equity = self._context.portfolio.total_equity(price)
-        target_qty = (equity * self.capital_fraction) / price
+        max_leverage = getattr(self._context, "max_leverage", 1.0)
+        max_notional = equity * max_leverage
+        desired_notional = equity * self.capital_fraction * max_leverage
+        notional = min(desired_notional, max_notional)
+        target_qty = notional / price if price != 0 else 0.0
 
         desired_signal = self.last_signal
         if short_ma > long_ma:

@@ -46,7 +46,7 @@ python examples/run_example.py \
 常用运行参数：
 
 - `--initial_capital`：初始资金，默认 `100000`。
-- `--max_leverage`：账户最大杠杆倍数，默认 `1.0`（无杠杆）。下单时若仓位名义价值超出 `equity * max_leverage` 将抛出错误，避免策略超量使用资金。
+- `--max_leverage`：账户最大杠杆倍数，默认 `1.0`（无杠杆）。下单时若仓位名义价值超出 `equity * max_leverage` 将抛出错误，避免策略超量使用资金。SMA 示例策略会按照 `capital_fraction * max_leverage` 的目标名义敞口下单，因此在 `--max_leverage 10` 时默认设置下的仓位规模会明显大于 `--max_leverage 2`，可直观体现杠杆影响。
 - `--fee` / `--slippage`：手续费与滑点设定。
 - `--params`：JSON 字符串形式的策略自定义参数。
 

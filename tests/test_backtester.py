@@ -11,6 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.backtester import Backtester
 from src.strategy_base import StrategyBase
+from src.strategies.sma_cross import SMACrossStrategy
 
 
 class BuyAndHoldStrategy(StrategyBase):
@@ -201,3 +202,35 @@ def test_leverage_violation_raises_error():
     )
     with pytest.raises(ValueError, match="exceeds max leverage"):
         bt.run()
+
+
+def test_sma_cross_position_scales_with_leverage():
+    data = [
+        {"timestamp": 0, "open": 100.0, "high": 100.0, "low": 100.0, "close": 100.0, "volume": 1},
+        {"timestamp": 1, "open": 101.0, "high": 101.0, "low": 101.0, "close": 101.0, "volume": 1},
+        {"timestamp": 2, "open": 102.0, "high": 102.0, "low": 102.0, "close": 102.0, "volume": 1},
+    ]
+
+    def run_with_leverage(leverage: float) -> float:
+        bt = Backtester(
+            data=data,
+            strategy_cls=SMACrossStrategy,
+            strategy_params={
+                "short_window": 1,
+                "long_window": 2,
+                "capital_fraction": 0.5,
+                "allow_short": False,
+            },
+            initial_capital=1000.0,
+            fee_rate=0.0,
+            max_leverage=leverage,
+        )
+        _, _, trades = bt.run()
+        return trades[0]["quantity"]
+
+    qty_low = run_with_leverage(2.0)
+    qty_high = run_with_leverage(10.0)
+
+    assert qty_high > qty_low
+    expected_ratio = 10.0 / 2.0
+    assert qty_high == pytest.approx(qty_low * expected_ratio, rel=1e-6)
