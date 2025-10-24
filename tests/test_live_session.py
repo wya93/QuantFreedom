@@ -105,6 +105,38 @@ class PassiveClient(FakeBinanceClient):
         raise AssertionError("No live orders expected when notional below minimum")
 
 
+class RecordingClient(FakeBinanceClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.requested_required = None
+
+    def fetch_historical_klines(self, symbol: str, interval: str, required: int):
+        self.requested_required = required
+        base = datetime.now(timezone.utc) - timedelta(hours=required + 1)
+        bars = []
+        for idx in range(required):
+            open_time = base + timedelta(hours=idx)
+            close_time = open_time + timedelta(hours=1)
+            price = 100 + idx * 0.1
+            bars.append(
+                [
+                    int(open_time.timestamp() * 1000),
+                    str(price),
+                    str(price + 0.5),
+                    str(price - 0.5),
+                    str(price),
+                    "10",
+                    int(close_time.timestamp() * 1000),
+                    "100",
+                    10,
+                    "5",
+                    "500",
+                    "0",
+                ]
+            )
+        return bars
+
+
 def test_live_session_places_order_when_signal_changes():
     client = FakeBinanceClient()
     strategy = SMACrossStrategy({"short_window": 1, "long_window": 2, "capital_fraction": 1.0})
@@ -141,3 +173,19 @@ def test_live_session_skips_orders_below_min_notional():
     summary = session.run_once()
     assert not client.orders
     assert summary["position"] == 0
+
+
+def test_live_session_requests_history_for_long_window():
+    client = RecordingClient()
+    params = {"short_window": 5, "long_window": 200, "warmup_bars": 10, "capital_fraction": 0.5}
+    strategy = SMACrossStrategy(params)
+    session = LiveTradingSession(
+        strategy=strategy,
+        client=client,
+        symbol="BTCUSDT",
+        interval="1h",
+        initial_capital=20.0,
+        max_leverage=5.0,
+    )
+    session.run_once()
+    assert client.requested_required == strategy.long_window + strategy.warmup_bars + 5

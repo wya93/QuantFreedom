@@ -135,6 +135,7 @@ python examples/run_live_binance.py \
 - `--leverage`：请求的最大杠杆倍数，默认 10x，脚本会在开仓前向 Binance 设置该杠杆。
 - `--testnet`：连接到 Binance Futures Testnet（`https://testnet.binancefuture.com`）。若要在正式站交易，去掉该参数并确保账户及风控配置正确。
 - `--poll`：若指定（单位：秒），脚本会保持常驻，每隔指定秒数重新拉取最新 1h K 线并执行策略。
+- `--lookback`：可手动覆盖历史回溯长度；默认根据策略的 `long_window` + `warmup_bars` 自动回溯足够多的 K 线，确保 200 均线等指标在实盘启动时已经有稳定的历史数据。
 
 运行期间日志会输出：
 

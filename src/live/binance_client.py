@@ -84,6 +84,42 @@ class BinanceFuturesClient:
         params = {"symbol": symbol, "interval": interval, "limit": limit}
         return self._request("GET", "/fapi/v1/klines", params)
 
+    def fetch_historical_klines(
+        self,
+        symbol: str,
+        interval: str,
+        required: int,
+        batch_size: int = 1000,
+    ) -> List[List[Any]]:
+        """Return at least ``required`` closed candles, paging backwards if needed."""
+
+        if required <= 0:
+            return []
+
+        klines: List[List[Any]] = []
+        end_time: Optional[int] = None
+
+        while len(klines) < required:
+            limit = max(1, min(batch_size, required - len(klines)))
+            params: Dict[str, Any] = {"symbol": symbol, "interval": interval, "limit": limit}
+            if end_time is not None:
+                params["endTime"] = end_time
+            batch = self._request("GET", "/fapi/v1/klines", params)
+            if not batch:
+                break
+            if not klines:
+                klines = batch
+            else:
+                klines = batch + klines
+            first_open_time = int(batch[0][0])
+            end_time = first_open_time - 1
+            if len(batch) < limit:
+                break
+
+        if len(klines) > required:
+            klines = klines[-required:]
+        return klines
+
     def get_symbol_filters(self, symbol: str) -> SymbolFilters:
         data = self._request("GET", "/fapi/v1/exchangeInfo", {"symbol": symbol})
         symbols = data.get("symbols", [])

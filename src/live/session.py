@@ -178,7 +178,18 @@ class LiveTradingSession:
         self.logger.info("Starting live cycle for %s", self.symbol)
         self.client.set_leverage(self.symbol, self.portfolio.max_leverage)
         self.sync_account_state()
-        klines = self.client.fetch_klines(self.symbol, self.interval, limit=self._determine_lookback())
+        required_bars = self._determine_lookback()
+        fetch_historical = getattr(self.client, "fetch_historical_klines", None)
+        if callable(fetch_historical):
+            klines = fetch_historical(self.symbol, self.interval, required_bars)
+        else:
+            klines = self.client.fetch_klines(self.symbol, self.interval, limit=required_bars)
+        if len(klines) < required_bars:
+            self.logger.warning(
+                "Requested %s bars but only received %s; strategy warm-up may be incomplete",
+                required_bars,
+                len(klines),
+            )
         now = datetime.now(timezone.utc)
         bars: List[Dict[str, Any]] = []
         for entry in klines:
