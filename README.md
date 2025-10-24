@@ -59,6 +59,25 @@ python examples/run_example.py \
 
 > 终端日志会实时输出每笔成交的价格、数量、手续费、持仓/现金变化，以及最终的买卖次数、成交量、净收益等统计，便于快速审计策略表现。
 
+### 指标预热与均线稳定性
+
+很多交易 APP 会在图表上展示长时间累计的均线指标，如果仅从某个时间点开始下载数据，本地重新计算的 SMA 在最开始的几根 K 线会因为缺少更早的历史数据而与 APP 的数值存在差异。推荐的做法：
+
+1. **多下载一段“预热”历史**：例如策略用到 `long_window=200` 的均线，可在真正的回测起点之前再额外抓取 200～400 根 K 线作为指标预热区间。这样即使正式统计从较晚的时间开始，均线已经在本地用足够的历史数据进行平滑。
+2. **利用 `warmup_bars` 延迟开仓**：`SMACrossStrategy` 提供了 `warmup_bars` 参数，会在累积 `long_window + warmup_bars` 根 K 线之后才开始下单。结合上面的“多下载一段历史”做法，可以保证策略决策时所用的均线已经充分稳定，而不会因为 CSV 起点不同而产生随机波动。
+3. **对照抽样验证**：在表格软件或 Notebook 中用相同的公式对某一段收盘价求均线，与 APP 或交易所导出的指标对比，确认差异仅存在于预热阶段且在若干根 K 线后趋于一致。
+
+如需在命令行直接设置，可通过：
+
+```bash
+python examples/run_example.py \
+  --data your_dataset.csv \
+  --strategy src/strategies/sma_cross.py \
+  --params '{"short_window": 50, "long_window": 200, "warmup_bars": 200}'
+```
+
+确保 CSV 覆盖 `long_window + warmup_bars` 根以上的数据后，就能得到与 APP 指标一致、可复现的回测结果。
+
 ## 下载真实行情数据
 
 仓库提供 `tools/download_binance_ohlcv.py`，用于按需从 Binance 公共 API 拉取 K 线。示例命令：

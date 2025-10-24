@@ -15,6 +15,7 @@ class SMACrossParams:
     long_window: int = 200
     capital_fraction: float = 0.5
     allow_short: bool = True
+    warmup_bars: int = 0
 
 
 class SMACrossStrategy(StrategyBase):
@@ -23,6 +24,9 @@ class SMACrossStrategy(StrategyBase):
     When the short-term moving average crosses above the long-term moving average
     the strategy enters a long position allocating a fraction of capital. A cross
     below either flips into a short (if ``allow_short`` is True) or exits to flat.
+    ``warmup_bars`` can be used to require additional history beyond the long
+    window before any trades are placed, which helps stabilise indicators when
+    the dataset begins mid-trend.
     """
 
     def __init__(self, params: Optional[Dict[str, float]] = None) -> None:
@@ -32,16 +36,19 @@ class SMACrossStrategy(StrategyBase):
             base_params.long_window = params.get("long_window", base_params.long_window)
             base_params.capital_fraction = params.get("capital_fraction", base_params.capital_fraction)
             base_params.allow_short = params.get("allow_short", base_params.allow_short)
+            base_params.warmup_bars = params.get("warmup_bars", base_params.warmup_bars)
         super().__init__({
             "short_window": base_params.short_window,
             "long_window": base_params.long_window,
             "capital_fraction": base_params.capital_fraction,
             "allow_short": base_params.allow_short,
+            "warmup_bars": base_params.warmup_bars,
         })
         self.short_window = base_params.short_window
         self.long_window = base_params.long_window
         self.capital_fraction = base_params.capital_fraction
         self.allow_short = base_params.allow_short
+        self.warmup_bars = max(0, base_params.warmup_bars)
         self.prices: List[float] = []
         self.last_signal: int = 0  # -1 short, 0 flat, 1 long
 
@@ -49,6 +56,8 @@ class SMACrossStrategy(StrategyBase):
         price = bar["close"]
         self.prices.append(price)
         if len(self.prices) < self.long_window:
+            return
+        if len(self.prices) < self.long_window + self.warmup_bars:
             return
         short_slice = self.prices[-self.short_window :]
         long_slice = self.prices[-self.long_window :]

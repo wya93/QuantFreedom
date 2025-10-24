@@ -236,3 +236,30 @@ def test_sma_cross_position_scales_with_leverage():
     assert qty_high > qty_low
     expected_ratio = 10.0 / 2.0
     assert qty_high == pytest.approx(qty_low * expected_ratio, rel=1e-6)
+
+
+def test_sma_cross_warmup_delays_trading_until_history_is_ready():
+    data = [
+        {"timestamp": i, "open": 100.0 + i, "high": 100.0 + i, "low": 100.0 + i, "close": 100.0 + i, "volume": 1}
+        for i in range(6)
+    ]
+
+    def first_trade_index(warmup: int) -> int:
+        bt = Backtester(
+            data=data,
+            strategy_cls=SMACrossStrategy,
+            strategy_params={
+                "short_window": 1,
+                "long_window": 2,
+                "capital_fraction": 0.5,
+                "allow_short": False,
+                "warmup_bars": warmup,
+            },
+            initial_capital=1000.0,
+            fee_rate=0.0,
+        )
+        _, _, trades = bt.run()
+        return trades[0]["index"] if trades else -1
+
+    assert first_trade_index(0) == 1
+    assert first_trade_index(2) == 3
