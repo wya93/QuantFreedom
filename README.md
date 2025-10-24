@@ -6,7 +6,7 @@ QuantFreedom 是一个可扩展的加密货币量化交易与回测系统，支�
 - 📈 支持 CSV 格式 OHLCV 数据加载
 - ⚙️ 灵活的交易撮合引擎：手续费、滑点、委托延迟
 - 🧠 策略接口：`on_bar`、`on_order`、`on_fill`
-- 💼 仓位与资金管理，支持单边和双边模式（可扩展永续合约），策略可开多做空
+- 💼 仓位与资金管理，支持单边/双边、杠杆上限及可扩展永续合约，策略可开多做空
 - 📊 丰富绩效指标与图表输出
 - ✅ 单元测试覆盖核心撮合与资金路径
 
@@ -36,8 +36,19 @@ timestamp,open,high,low,close,volume
 执行示例策略（双均线交叉，可配置做空开关）：
 
 ```bash
-python examples/run_example.py --data examples/data/BTC_USD_1h.csv --strategy src/strategies/sma_cross.py --params '{"allow_short": true}'
+python examples/run_example.py \
+  --data examples/data/BTC_USD_1h.csv \
+  --strategy src/strategies/sma_cross.py \
+  --max_leverage 3 \
+  --params '{"allow_short": true}'
 ```
+
+常用运行参数：
+
+- `--initial_capital`：初始资金，默认 `100000`。
+- `--max_leverage`：账户最大杠杆倍数，默认 `1.0`（无杠杆）。下单时若仓位名义价值超出 `equity * max_leverage` 将抛出错误，避免策略超量使用资金。
+- `--fee` / `--slippage`：手续费与滑点设定。
+- `--params`：JSON 字符串形式的策略自定义参数。
 
 运行后将生成：
 - `outputs/equity_curve.csv`：净值曲线

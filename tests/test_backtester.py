@@ -88,6 +88,24 @@ class FlipStrategy(StrategyBase):
         self.step += 1
 
 
+class LeveragedLongStrategy(StrategyBase):
+    """Attempt to enter a leveraged long position on the first bar."""
+
+    def __init__(self, params=None):
+        super().__init__(params)
+        self.executed = False
+
+    def on_bar(self, bar):
+        if self.executed:
+            return
+        price = bar["close"]
+        equity = self._context.portfolio.total_equity(price)
+        multiplier = self.params.get("multiplier", 2.0)
+        qty = (equity * multiplier) / price
+        self.buy(qty)
+        self.executed = True
+
+
 def test_market_order_fill_updates_position():
     data = [
         {"timestamp": 0, "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1},
@@ -153,3 +171,33 @@ def test_flip_from_long_to_short_records_realized_pnl():
     assert trades_rows[1]["realized_pnl"] == pytest.approx(10.0)
     assert bt.portfolio.position_qty == pytest.approx(-1.0)
     assert bt.portfolio.avg_entry_price == pytest.approx(110.0)
+
+
+def test_leverage_allows_larger_notional_when_enabled():
+    data = [
+        {"timestamp": 0, "open": 100.0, "high": 100.0, "low": 100.0, "close": 100.0, "volume": 1},
+    ]
+    bt = Backtester(
+        data=data,
+        strategy_cls=LeveragedLongStrategy,
+        initial_capital=1000.0,
+        fee_rate=0.0,
+        max_leverage=2.0,
+    )
+    bt.run()
+    assert bt.portfolio.position_qty == pytest.approx((1000.0 * 2) / 100.0)
+
+
+def test_leverage_violation_raises_error():
+    data = [
+        {"timestamp": 0, "open": 100.0, "high": 100.0, "low": 100.0, "close": 100.0, "volume": 1},
+    ]
+    bt = Backtester(
+        data=data,
+        strategy_cls=LeveragedLongStrategy,
+        initial_capital=1000.0,
+        fee_rate=0.0,
+        max_leverage=1.0,
+    )
+    with pytest.raises(ValueError, match="exceeds max leverage"):
+        bt.run()

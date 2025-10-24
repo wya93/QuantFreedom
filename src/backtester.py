@@ -26,6 +26,7 @@ class Backtester:
         slippage: float = 0.0,
         slippage_type: str = "bps",
         order_latency: int = 0,
+        max_leverage: float = 1.0,
     ) -> None:
         self.data: List[Dict[str, Any]] = [dict(bar) for bar in data]
         self.exchange = ExchangeSim(
@@ -34,7 +35,8 @@ class Backtester:
             slippage_type=slippage_type,
             order_latency=order_latency,
         )
-        self.portfolio = Portfolio(initial_capital=initial_capital)
+        self.portfolio = Portfolio(initial_capital=initial_capital, max_leverage=max_leverage)
+        self.max_leverage = max_leverage
         self.strategy = strategy_cls(strategy_params or {})
         self.strategy.set_context(self)
         self.current_index = 0

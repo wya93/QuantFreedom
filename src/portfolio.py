@@ -34,6 +34,7 @@ class Portfolio:
     """Single-asset portfolio model supporting spot/perpetual extensions."""
 
     initial_capital: float
+    max_leverage: float = 1.0
     cash: float = field(init=False)
     position_qty: float = field(default=0.0, init=False)
     avg_entry_price: float = field(default=0.0, init=False)
@@ -41,6 +42,8 @@ class Portfolio:
     trades: List[TradeRecord] = field(default_factory=list, init=False)
 
     def __post_init__(self) -> None:
+        if self.max_leverage <= 0:
+            raise ValueError("max_leverage must be positive")
         self.cash = self.initial_capital
 
     # ---- accounting ------------------------------------------------------
@@ -48,12 +51,26 @@ class Portfolio:
         """Update cash, position direction and realised PnL for a fill."""
         qty = fill.quantity  # positive for buy fills, negative for sell fills
         cost = qty * fill.price
-        self.cash -= cost
-        self.cash -= fill.fee
-
-        realized_pnl = 0.0
         prev_qty = self.position_qty
         new_qty = prev_qty + qty
+        prospective_cash = self.cash - cost - fill.fee
+        equity_after = prospective_cash + new_qty * fill.price
+
+        increasing_exposure = abs(new_qty) > abs(prev_qty)
+        if increasing_exposure:
+            if equity_after <= 0:
+                raise ValueError("Trade would reduce equity below zero; adjust leverage or size")
+            allowed_notional = equity_after * self.max_leverage
+            actual_notional = abs(new_qty) * fill.price
+            if actual_notional - allowed_notional > 1e-9:
+                raise ValueError(
+                    f"Trade exceeds max leverage {self.max_leverage:.2f}x: "
+                    f"notional {actual_notional:.6f} > allowed {allowed_notional:.6f}"
+                )
+
+        self.cash = prospective_cash
+
+        realized_pnl = 0.0
 
         if prev_qty == 0:
             # Opening a fresh position (long or short)

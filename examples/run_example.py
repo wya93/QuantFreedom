@@ -110,6 +110,7 @@ def main() -> None:
     parser.add_argument("--initial_capital", type=float, default=100_000.0)
     parser.add_argument("--fee", type=float, default=0.0005, help="Fee rate (fraction)")
     parser.add_argument("--slippage", type=float, default=0.0, help="Slippage in bps")
+    parser.add_argument("--max_leverage", type=float, default=1.0, help="Maximum portfolio leverage")
     parser.add_argument("--params", help="Strategy parameter JSON string", default=None)
     args = parser.parse_args()
 
@@ -129,6 +130,7 @@ def main() -> None:
         initial_capital=args.initial_capital,
         fee_rate=args.fee,
         slippage=args.slippage,
+        max_leverage=args.max_leverage,
     )
     metrics, equity_rows, trades_rows = backtester.run()
 
