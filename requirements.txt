@@ -1,0 +1,6 @@
+# Optional plotting support
+matplotlib>=3.4
+# Test runner for contributors
+pytest>=6.0
+# REST client for Binance live trading
+requests>=2.31
