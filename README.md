@@ -102,6 +102,49 @@ python tools/download_binance_ohlcv.py \
 
 下载完成后，可直接将生成的 CSV 作为 `--data` 参数传入回测脚本。
 
+## 实盘交易（Binance USDT 永续合约）
+
+项目内置 `examples/run_live_binance.py`，可在 Binance USDT 本位永续合约上实时执行策略。推荐先在 **Testnet** 环境完成联调，再切换至正式站。
+
+### 环境准备
+
+1. 在 Binance 生成 API Key（期货交易权限，若使用正式站请妥善保管）。
+2. 将密钥写入环境变量：
+
+   ```bash
+   export BINANCE_API_KEY="你的APIKey"
+   export BINANCE_API_SECRET="你的Secret"
+   ```
+
+3. 准备至少 20 USDT 的期货可用余额。脚本会默认以 20 USDT 本金、10x 杠杆估算下单数量，可通过参数调整。
+
+### 单次执行
+
+```bash
+python examples/run_live_binance.py \
+  --symbol BTCUSDT \
+  --interval 1h \
+  --strategy src/strategies/sma_cross.py \
+  --params '{"capital_fraction": 0.5, "allow_short": true}' \
+  --capital 20 \
+  --leverage 10 \
+  --testnet
+```
+
+- `--capital`：用于估算下单名义价值的本金，默认 20 USDT。
+- `--leverage`：请求的最大杠杆倍数，默认 10x，脚本会在开仓前向 Binance 设置该杠杆。
+- `--testnet`：连接到 Binance Futures Testnet（`https://testnet.binancefuture.com`）。若要在正式站交易，去掉该参数并确保账户及风控配置正确。
+- `--poll`：若指定（单位：秒），脚本会保持常驻，每隔指定秒数重新拉取最新 1h K 线并执行策略。
+
+运行期间日志会输出：
+
+- 最近一次完成的 1h K 线价格；
+- 实时仓位、现金、权益；
+- 每次下单的成交均价、数量、手续费、单笔盈亏；
+- Binance 返回的订单状态（默认使用市价单）。
+
+> ⚠️ 实盘模式仅支持策略发起的市价单，并会在最新闭合的 K 线上执行信号。请务必在 Testnet 验证好策略行为、最小下单量以及风险控制再部署到正式环境。
+
 ## 添加新策略
 1. 在 `src/strategies/` 下创建新文件，继承 `StrategyBase`。
 2. 实现 `on_bar`、`on_order`、`on_fill` 方法，并在构造时传入参数。
@@ -139,9 +182,14 @@ QuantFreedom/
 │   │   └─ sma_cross.py
 │   ├─ portfolio.py
 │   ├─ metrics.py
-│   └─ utils.py
+│   ├─ utils.py
+│   └─ live/
+│       ├─ __init__.py
+│       ├─ binance_client.py
+│       └─ session.py
 ├─ examples/
-│   └─ run_example.py
+│   ├─ run_example.py
+│   └─ run_live_binance.py
 ├─ tests/
 │   └─ test_backtester.py
 └─ notebooks/

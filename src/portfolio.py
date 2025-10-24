@@ -79,7 +79,8 @@ class Portfolio:
                 raise ValueError("Trade would reduce equity below zero; adjust leverage or size")
             allowed_notional = equity_after * self.max_leverage
             actual_notional = abs(new_qty) * fill.price
-            if actual_notional - allowed_notional > 1e-9:
+            tolerance = max(1e-9, abs(fill.fee) * self.max_leverage * 1.1)
+            if actual_notional - allowed_notional > tolerance:
                 raise ValueError(
                     f"Trade exceeds max leverage {self.max_leverage:.2f}x: "
                     f"notional {actual_notional:.6f} > allowed {allowed_notional:.6f}"
