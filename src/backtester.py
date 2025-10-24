@@ -81,7 +81,7 @@ class Backtester:
                 )
                 self.logger.info(
                     "Trade %03d | ts=%s | side=%s | qty=%.6f | price=%.6f | fee=%.6f | "
-                    "realized_pnl=%.6f | position=%.6f | cash=%.6f | equity=%.6f",
+                    "realized_pnl=%.6f | trade_pnl=%.6f | position=%.6f | cash=%.6f | equity=%.6f",
                     len(self.portfolio.trades),
                     trade_record.timestamp,
                     trade_record.side,
@@ -89,6 +89,7 @@ class Backtester:
                     trade_record.price,
                     trade_record.fee,
                     trade_record.realized_pnl,
+                    trade_record.trade_pnl,
                     trade_record.position_after,
                     trade_record.cash_after,
                     trade_record.equity_after,
@@ -111,17 +112,19 @@ class Backtester:
         sell_trades = [row for row in trades_rows if row["quantity"] < 0]
         total_volume = sum(abs(row["quantity"]) for row in trades_rows)
         total_realized = sum(row["realized_pnl"] for row in trades_rows)
+        total_trade_pnl = sum(row.get("trade_pnl", row["realized_pnl"] - row["fee"]) for row in trades_rows)
         total_fees = sum(row["fee"] for row in trades_rows)
         self.logger.info(
             "Trade summary | total=%d | buys=%d | sells=%d | gross_volume=%.6f | "
-            "realized_pnl=%.6f | fees=%.6f | net_pnl=%.6f",
+            "realized_pnl=%.6f | trade_pnl=%.6f | fees=%.6f | net_pnl=%.6f",
             total_trades,
             len(buy_trades),
             len(sell_trades),
             total_volume,
             total_realized,
+            total_trade_pnl,
             total_fees,
-            total_realized - total_fees,
+            total_trade_pnl,
         )
 
     def save_results(

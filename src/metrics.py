@@ -55,6 +55,7 @@ def compute_metrics(
     )
     total_fees = sum(tr.fee for tr in trades)
     total_realized = sum(tr.realized_pnl for tr in trades)
+    total_trade_pnl = sum(getattr(tr, "trade_pnl", tr.realized_pnl - tr.fee) for tr in trades)
     buy_trades = sum(1 for tr in trades if tr.quantity > 0)
     sell_trades = sum(1 for tr in trades if tr.quantity < 0)
     buy_volume = sum(tr.quantity for tr in trades if tr.quantity > 0)
@@ -75,7 +76,8 @@ def compute_metrics(
         "holding_bars": holding_bars,
         "total_fees": total_fees,
         "realized_pnl": total_realized,
-        "net_pnl": total_realized - total_fees,
+        "trade_pnl": total_trade_pnl,
+        "net_pnl": total_trade_pnl,
         "buy_trades": int(buy_trades),
         "sell_trades": int(sell_trades),
         "buy_volume": buy_volume,

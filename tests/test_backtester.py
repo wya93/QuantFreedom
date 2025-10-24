@@ -159,6 +159,7 @@ def test_short_position_generates_positive_pnl_when_price_falls():
     metrics, equity_rows, trades_rows = bt.run()
     assert bt.portfolio.position_qty == pytest.approx(0.0)
     assert trades_rows[-1]["realized_pnl"] == pytest.approx(10.0)
+    assert trades_rows[-1]["trade_pnl"] == pytest.approx(10.0)
     assert metrics["final_capital"] == pytest.approx(1010.0)
 
 
@@ -170,6 +171,7 @@ def test_flip_from_long_to_short_records_realized_pnl():
     bt = Backtester(data=data, strategy_cls=FlipStrategy, initial_capital=1000.0, fee_rate=0.0)
     _, _, trades_rows = bt.run()
     assert trades_rows[1]["realized_pnl"] == pytest.approx(10.0)
+    assert trades_rows[1]["trade_pnl"] == pytest.approx(10.0)
     assert bt.portfolio.position_qty == pytest.approx(-1.0)
     assert bt.portfolio.avg_entry_price == pytest.approx(110.0)
 

@@ -29,6 +29,7 @@ class TradeRecord:
     price: float
     fee: float
     realized_pnl: float
+    trade_pnl: float
     cash_after: float
     position_after: float
     equity_after: float
@@ -143,6 +144,8 @@ class Portfolio:
         )
         mark = fill.price if mark_price is None else mark_price
         equity_after = self.total_equity(mark)
+        trade_pnl = realized_pnl - fill.fee
+
         record = TradeRecord(
             index=fill.timestamp,
             timestamp=timestamp_label,
@@ -152,6 +155,7 @@ class Portfolio:
             price=fill.price,
             fee=fill.fee,
             realized_pnl=realized_pnl,
+            trade_pnl=trade_pnl,
             cash_after=self.cash,
             position_after=self.position_qty,
             equity_after=equity_after,
