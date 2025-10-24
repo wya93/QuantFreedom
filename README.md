@@ -45,6 +45,30 @@ python examples/run_example.py --data examples/data/BTC_USD_1h.csv --strategy sr
 - `outputs/report.json`：回测指标
 - `outputs/equity_plot.png`：净值与买卖点图
 
+## 下载真实行情数据
+
+仓库提供 `tools/download_binance_ohlcv.py`，用于按需从 Binance 公共 API 拉取 K 线。示例命令：
+
+```bash
+python tools/download_binance_ohlcv.py \
+  --symbol BTCUSDT \
+  --interval 1h \
+  --start 2023-01-01T00:00:00Z \
+  --end 2023-02-01T00:00:00Z \
+  --output examples/data/BTC_USDT_1h_real.csv
+```
+
+常用参数：
+
+- `--symbol`：交易对（如 `BTCUSDT`、`ETHUSDT`）。
+- `--interval`：K 线周期，支持 Binance 的全部周期（`1m`、`5m`、`1h`、`4h`、`1d` 等）。
+- `--start`/`--end`：起止时间，ISO8601 字符串或毫秒时间戳，可选。
+- `--limit`：仅指定下载的最大条数时可使用，省略起止时间。
+- `--pause`：分页请求之间的休眠秒数，默认 `0.2` 秒以避免触发限频。
+- `--output`：输出 CSV 路径，列顺序与框架要求一致。
+
+下载完成后，可直接将生成的 CSV 作为 `--data` 参数传入回测脚本。
+
 ## 添加新策略
 1. 在 `src/strategies/` 下创建新文件，继承 `StrategyBase`。
 2. 实现 `on_bar`、`on_order`、`on_fill` 方法，并在构造时传入参数。
